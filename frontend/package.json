@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
-    "preview": "vite preview --port 21811"
+    "preview": "vite preview --port 21811",
+    "test:merge": "esbuild scripts/merge-engine.test.ts --bundle --platform=node --format=esm --outfile=/tmp/merge-engine.test.mjs && node /tmp/merge-engine.test.mjs",
+    "test:merge-io": "esbuild scripts/merge-io.test.ts --bundle --platform=node --format=esm --outfile=/tmp/merge-io.test.mjs && node /tmp/merge-io.test.mjs"
   },
   "dependencies": {
     "@ant-design/icons": "^5.5.2",
@@ -23,6 +25,7 @@
     "@types/react": "^18.3.18",
     "@types/react-dom": "^18.3.5",
     "@vitejs/plugin-react": "^4.3.4",
+    "fake-indexeddb": "^6.2.5",
     "typescript": "~5.7.3",
     "vite": "^6.1.0"
   }

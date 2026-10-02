@@ -1,4 +1,6 @@
 /** 回次水位 */
+import type { RecordOrigin } from '../utils/provenance';
+
 export type RunShift = '甲班' | '乙班' | '丙班';
 
 /** 钻进回次 */
@@ -28,6 +30,8 @@ export interface DrillRun {
   recorder: string;
   /** 备注 */
   remark?: string;
+  /** 记录来源与基线版本（差量合并用，旧数据回填） */
+  _origin?: RecordOrigin;
 }
 
 /** 采取率分级 */

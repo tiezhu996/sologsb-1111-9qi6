@@ -1,4 +1,6 @@
 /** 岩芯箱 */
+import type { RecordOrigin } from '../utils/provenance';
+
 export interface CoreBox {
   id: string;
   /** 箱号 */
@@ -23,6 +25,8 @@ export interface CoreBox {
   operator: string;
   /** 备注 */
   remark?: string;
+  /** 记录来源与基线版本（差量合并用，旧数据回填） */
+  _origin?: RecordOrigin;
 }
 
 /** 岩芯箱与回次的连续性校验结果 */

@@ -1,6 +1,7 @@
 import { create } from 'zustand';
-import { db } from '../utils/db';
+import { db, getDeviceIdentity } from '../utils/db';
 import { uid } from '../utils/id';
+import { stampCreate, stampUpdate } from '../utils/provenance';
 import type { CoreBox } from '../types/core-box';
 
 export interface BoxInput {
@@ -39,7 +40,7 @@ export const useBoxStore = create<BoxState>()((set, get) => ({
   },
 
   addBox: async (input) => {
-    const box: CoreBox = {
+    const base: CoreBox = {
       id: uid('box'),
       boxNo: input.boxNo.trim(),
       holeId: input.holeId,
@@ -53,6 +54,7 @@ export const useBoxStore = create<BoxState>()((set, get) => ({
       operator: input.operator.trim(),
       remark: input.remark?.trim() || undefined,
     };
+    const box = stampCreate(base, await getDeviceIdentity());
     await db.boxes.put(box);
     set({ boxes: [...get().boxes, box] });
     return box;
@@ -61,7 +63,8 @@ export const useBoxStore = create<BoxState>()((set, get) => ({
   updateBox: async (id, patch) => {
     const current = get().boxes.find((b) => b.id === id);
     if (!current) return;
-    const next: CoreBox = { ...current, ...patch };
+    const merged: CoreBox = { ...current, ...patch };
+    const next = stampUpdate(current, merged, await getDeviceIdentity());
     await db.boxes.put(next);
     set({ boxes: get().boxes.map((b) => (b.id === id ? next : b)) });
   },
@@ -77,7 +80,8 @@ export const useBoxStore = create<BoxState>()((set, get) => ({
     const damagedSlots = current.damagedSlots.includes(slot)
       ? current.damagedSlots.filter((s) => s !== slot)
       : [...current.damagedSlots, slot].sort((a, b) => a - b);
-    const next: CoreBox = { ...current, damagedSlots };
+    const merged: CoreBox = { ...current, damagedSlots };
+    const next = stampUpdate(current, merged, await getDeviceIdentity());
     await db.boxes.put(next);
     set({ boxes: get().boxes.map((b) => (b.id === id ? next : b)) });
   },

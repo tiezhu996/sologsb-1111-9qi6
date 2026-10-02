@@ -1,4 +1,6 @@
 /** 岩性 */
+import type { RecordOrigin } from '../utils/provenance';
+
 export type Lithology = '花岗闪长岩' | '大理岩' | '矽卡岩' | '断层角砾岩' | '第四系覆盖层';
 
 /** 蚀变类型 */
@@ -32,6 +34,8 @@ export interface LithoLog {
   logger: string;
   /** 备注 */
   remark?: string;
+  /** 记录来源与基线版本（差量合并用，旧数据回填） */
+  _origin?: RecordOrigin;
 }
 
 /** 区间冲突 */

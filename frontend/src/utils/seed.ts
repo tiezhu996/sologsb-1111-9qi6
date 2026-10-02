@@ -1,9 +1,10 @@
-import { db } from './db';
+import { db, getDeviceIdentity, META_SEEDED } from './db';
 import type { DrillHole } from '../types/drill-hole';
 import type { DrillRun } from '../types/drill-run';
 import type { CoreBox } from '../types/core-box';
 import type { LithoLog } from '../types/litho-log';
 import { footageOf, recoveryOf } from './recovery';
+import { stampCreate, type DeviceIdentity, type OriginAware } from './provenance';
 
 const DAY = 86_400_000;
 const daysAgo = (n: number) => new Date(Date.now() - n * DAY).toISOString();
@@ -169,7 +170,7 @@ export const SEED_LITHOS: LithoLog[] = [
 
 /** 首次打开（表内无数据）时写入示例数据；已有数据则不动 */
 export async function seedIfEmpty(): Promise<void> {
-  const flag = await db.meta.get('seeded');
+  const flag = await db.meta.get(META_SEEDED);
   if (flag) {
     return;
   }
@@ -180,11 +181,16 @@ export async function seedIfEmpty(): Promise<void> {
     db.lithos.count(),
   ]);
 
+  // 示例数据同样盖本机来源章，保证首次对账基线完整
+  const identity: DeviceIdentity = await getDeviceIdentity();
+  const at = new Date().toISOString();
+  const stamp = <T extends OriginAware>(row: T): T => stampCreate(row, identity, at);
+
   await db.transaction('rw', db.holes, db.runs, db.boxes, db.lithos, db.meta, async () => {
-    if (holeCount === 0) await db.holes.bulkPut(SEED_HOLES);
-    if (runCount === 0) await db.runs.bulkPut(SEED_RUNS);
-    if (boxCount === 0) await db.boxes.bulkPut(SEED_BOXES);
-    if (lithoCount === 0) await db.lithos.bulkPut(SEED_LITHOS);
-    await db.meta.put({ key: 'seeded', value: new Date().toISOString() });
+    if (holeCount === 0) await db.holes.bulkPut(SEED_HOLES.map(stamp) as never[]);
+    if (runCount === 0) await db.runs.bulkPut(SEED_RUNS.map(stamp) as never[]);
+    if (boxCount === 0) await db.boxes.bulkPut(SEED_BOXES.map(stamp) as never[]);
+    if (lithoCount === 0) await db.lithos.bulkPut(SEED_LITHOS.map(stamp) as never[]);
+    await db.meta.put({ key: META_SEEDED, value: new Date().toISOString() });
   });
 }

@@ -1,6 +1,7 @@
 import { create } from 'zustand';
-import { db } from '../utils/db';
+import { db, getDeviceIdentity } from '../utils/db';
 import { uid } from '../utils/id';
+import { stampCreate, stampUpdate } from '../utils/provenance';
 import type { DrillRun, RunAnomaly, RunShift } from '../types/drill-run';
 import { footageOf, gradeOf, isAnomaly, recoveryOf, RECOVERY_GRADE_TEXT } from '../utils/recovery';
 
@@ -39,7 +40,7 @@ export const useRunStore = create<RunState>()((set, get) => ({
 
   addRun: async (input) => {
     const footage = footageOf(input.fromDepth, input.toDepth);
-    const run: DrillRun = {
+    const base: DrillRun = {
       id: uid('run'),
       runNo: input.runNo.trim(),
       holeId: input.holeId,
@@ -54,6 +55,7 @@ export const useRunStore = create<RunState>()((set, get) => ({
       recorder: input.recorder.trim(),
       remark: input.remark?.trim() || undefined,
     };
+    const run = stampCreate(base, await getDeviceIdentity());
     await db.runs.put(run);
     set({ runs: [run, ...get().runs] });
     return run;
@@ -64,11 +66,12 @@ export const useRunStore = create<RunState>()((set, get) => ({
     if (!current) return;
     const merged = { ...current, ...patch };
     const footage = footageOf(merged.fromDepth, merged.toDepth);
-    const next: DrillRun = {
+    const calculated: DrillRun = {
       ...merged,
       footage,
       recovery: recoveryOf(merged.coreLength, footage),
     };
+    const next = stampUpdate(current, calculated, await getDeviceIdentity());
     await db.runs.put(next);
     set({ runs: get().runs.map((r) => (r.id === id ? next : r)) });
   },

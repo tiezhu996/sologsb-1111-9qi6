@@ -1,6 +1,7 @@
 import { create } from 'zustand';
-import { db } from '../utils/db';
+import { db, getDeviceIdentity } from '../utils/db';
 import { uid } from '../utils/id';
+import { stampCreate, stampUpdate } from '../utils/provenance';
 import type { DrillHole, HoleProgress, SurveyPoint } from '../types/drill-hole';
 import type { DrillRun } from '../types/drill-run';
 import { buildHoleProgress } from '../utils/recovery';
@@ -47,7 +48,8 @@ export const useHoleStore = create<HoleState>()((set, get) => ({
   setCurrentHole: (id) => set({ currentHoleId: id }),
 
   addHole: async (input) => {
-    const hole: DrillHole = {
+    const identity = await getDeviceIdentity();
+    const base: DrillHole = {
       id: uid('hole'),
       holeNo: input.holeNo.trim(),
       coordX: Number(input.coordX) || 0,
@@ -62,6 +64,7 @@ export const useHoleStore = create<HoleState>()((set, get) => ({
       surveyData: input.surveyData,
       remark: input.remark?.trim() || undefined,
     };
+    const hole = stampCreate(base, identity);
     await db.holes.put(hole);
     set({ holes: [...get().holes, hole].sort((a, b) => a.holeNo.localeCompare(b.holeNo)), currentHoleId: hole.id });
     return hole;
@@ -70,7 +73,9 @@ export const useHoleStore = create<HoleState>()((set, get) => ({
   updateHole: async (id, patch) => {
     const current = get().holes.find((h) => h.id === id);
     if (!current) return;
-    const next: DrillHole = { ...current, ...patch };
+    const identity = await getDeviceIdentity();
+    const merged: DrillHole = { ...current, ...patch };
+    const next = stampUpdate(current, merged, identity);
     await db.holes.put(next);
     set({ holes: get().holes.map((h) => (h.id === id ? next : h)) });
   },

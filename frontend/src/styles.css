@@ -29,3 +29,17 @@ a {
 .conflict-row > td {
   background: #fff1f0 !important;
 }
+
+/* 差量合并：待选定行、字段差异、受保护事实 */
+.merge-need-decision-row > td {
+  background: #fffbe6 !important;
+}
+
+.merge-changed-row > td {
+  background: #f6ffed !important;
+}
+
+.merge-protected-row > td {
+  background: #fff1f0 !important;
+  font-weight: 600;
+}

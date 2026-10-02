@@ -1,6 +1,7 @@
 import { create } from 'zustand';
-import { db } from '../utils/db';
+import { db, getDeviceIdentity } from '../utils/db';
 import { uid } from '../utils/id';
+import { stampCreate, stampUpdate } from '../utils/provenance';
 import type { Alteration, LithoLog, Lithology, Mineralization, RangeConflict } from '../types/litho-log';
 import { findConflicts } from '../utils/recovery';
 
@@ -61,7 +62,7 @@ export const useLithoStore = create<LithoState>()((set, get) => ({
     if (conflicts.length) {
       return { conflicts };
     }
-    const log: LithoLog = {
+    const base: LithoLog = {
       id: uid('litho'),
       holeId: input.holeId,
       fromDepth: Number(input.fromDepth) || 0,
@@ -75,6 +76,7 @@ export const useLithoStore = create<LithoState>()((set, get) => ({
       logger: input.logger.trim(),
       remark: input.remark?.trim() || undefined,
     };
+    const log = stampCreate(base, await getDeviceIdentity());
     await db.lithos.put(log);
     set({ lithos: [...get().lithos, log] });
     return { log, conflicts: [] };
@@ -88,7 +90,7 @@ export const useLithoStore = create<LithoState>()((set, get) => ({
     if (conflicts.length) {
       return { conflicts };
     }
-    const next: LithoLog = { ...merged };
+    const next = stampUpdate(current, merged as LithoLog, await getDeviceIdentity());
     await db.lithos.put(next);
     set({ lithos: get().lithos.map((l) => (l.id === id ? next : l)) });
     return { log: next, conflicts: [] };

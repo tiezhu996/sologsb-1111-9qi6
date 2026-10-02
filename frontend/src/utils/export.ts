@@ -1,4 +1,5 @@
-import { db, SCHEMA_VERSION } from './db';
+import { db, SCHEMA_VERSION, getDeviceIdentity, backfillAllOrigins } from './db';
+import { ensureOrigin, type SourcedRow } from './provenance';
 
 export interface BackupPayload {
   app: string;
@@ -58,7 +59,7 @@ export function downloadCsv<T extends Record<string, unknown>>(
   downloadText(filename, `\ufeff${header}\n${body}`, 'text/csv');
 }
 
-/** 恢复 JSON 备份 */
+/** 恢复 JSON 备份（整库覆盖；恢复后对缺少来源字段的旧数据按兼容规则回填） */
 export async function importBackup(text: string): Promise<{ holes: number; runs: number; boxes: number; lithos: number }> {
   const payload = JSON.parse(text) as Partial<BackupPayload>;
   if (!payload || payload.app !== 'gbdrillcore') {
@@ -70,12 +71,16 @@ export async function importBackup(text: string): Promise<{ holes: number; runs:
     boxes: payload.boxes?.length ?? 0,
     lithos: payload.lithos?.length ?? 0,
   };
+  const identity = await getDeviceIdentity();
+  const stamp = (row: unknown) => ensureOrigin(row as SourcedRow, identity);
   await db.transaction('rw', db.holes, db.runs, db.boxes, db.lithos, async () => {
     await Promise.all([db.holes.clear(), db.runs.clear(), db.boxes.clear(), db.lithos.clear()]);
-    if (payload.holes?.length) await db.holes.bulkPut(payload.holes as never[]);
-    if (payload.runs?.length) await db.runs.bulkPut(payload.runs as never[]);
-    if (payload.boxes?.length) await db.boxes.bulkPut(payload.boxes as never[]);
-    if (payload.lithos?.length) await db.lithos.bulkPut(payload.lithos as never[]);
+    if (payload.holes?.length) await db.holes.bulkPut(payload.holes.map(stamp) as never[]);
+    if (payload.runs?.length) await db.runs.bulkPut(payload.runs.map(stamp) as never[]);
+    if (payload.boxes?.length) await db.boxes.bulkPut(payload.boxes.map(stamp) as never[]);
+    if (payload.lithos?.length) await db.lithos.bulkPut(payload.lithos.map(stamp) as never[]);
   });
+  // 兜底：库里若还有任何缺来源的记录（历史遗留），统一回填
+  await backfillAllOrigins(identity);
   return counts;
 }

@@ -1,4 +1,6 @@
 /** 钻孔测斜点 */
+import type { RecordOrigin } from '../utils/provenance';
+
 export interface SurveyPoint {
   id: string;
   /** 测点深度（m） */
@@ -36,6 +38,8 @@ export interface DrillHole {
   surveyData: SurveyPoint[];
   /** 备注 */
   remark?: string;
+  /** 记录来源与基线版本（差量合并用，旧数据回填） */
+  _origin?: RecordOrigin;
 }
 
 export const RIG_NOS: string[] = ['XY-1', 'XY-2', 'XY-4', 'HGY-300'];

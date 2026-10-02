@@ -7,6 +7,7 @@ import {
   ExperimentOutlined,
   ProfileOutlined,
   BarsOutlined,
+  SwapOutlined,
 } from '@ant-design/icons';
 import { Link, Outlet, useLocation } from 'react-router-dom';
 import { seedIfEmpty } from './utils/seed';
@@ -25,6 +26,7 @@ const MENU_ITEMS = [
   { key: '/runs', icon: <BarsOutlined />, label: <Link to="/runs">回次记录</Link> },
   { key: '/boxes', icon: <ProfileOutlined />, label: <Link to="/boxes">岩芯箱</Link> },
   { key: '/lithology', icon: <ExperimentOutlined />, label: <Link to="/lithology">岩性编录</Link> },
+  { key: '/merge', icon: <SwapOutlined />, label: <Link to="/merge">差量合并</Link> },
 ];
 
 /** 应用外壳：左侧导航 + 顶部导出备份，负责一次性的本地数据装载 */
@@ -54,6 +56,14 @@ export default function App() {
     };
   }, [hydrateHoles, hydrateRuns, hydrateBoxes, hydrateLithos, message]);
 
+  useEffect(() => {
+    const rehydrate = () => {
+      void Promise.all([hydrateHoles(), hydrateRuns(), hydrateBoxes(), hydrateLithos()]);
+    };
+    window.addEventListener('gbdrillcore-data-changed', rehydrate);
+    return () => window.removeEventListener('gbdrillcore-data-changed', rehydrate);
+  }, [hydrateHoles, hydrateRuns, hydrateBoxes, hydrateLithos]);
+
   const selectedKey =
     MENU_ITEMS.map((item) => item.key)
       .filter((key) => (key === '/' ? location.pathname === '/' : location.pathname.startsWith(key)))
@@ -80,6 +90,9 @@ export default function App() {
         <Header style={{ background: '#fff', padding: '0 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <Text strong>矿区钻孔岩芯编目台</Text>
           <Space>
+            <Link to="/merge">
+              <Button icon={<SwapOutlined />}>差量合并</Button>
+            </Link>
             <Button icon={<DownloadOutlined />} onClick={handleExport}>
               导出备份
             </Button>
