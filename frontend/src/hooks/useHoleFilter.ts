@@ -15,10 +15,10 @@ export interface HoleFilterApi extends HoleFilterState {
   setRigNo: (value: string) => void;
   setShift: (value: string) => void;
   reset: () => void;
-  /** 按孔号 / 钻机 / 班组筛选钻孔 */
-  apply: (holes: DrillHole[]) => DrillHole[];
+  /** 按孔号 / 钻机 / 班组筛选钻孔（兼容带同步信封的行） */
+  apply: <H extends DrillHole>(holes: H[]) => H[];
   /** 回次是否命中当前筛选（按所属钻孔） */
-  matchRun: (run: DrillRun, holes: DrillHole[]) => boolean;
+  matchRun: <R extends DrillRun, H extends DrillHole>(run: R, holes: H[]) => boolean;
 }
 
 /**
@@ -50,7 +50,7 @@ export function useHoleFilter(): HoleFilterApi {
   );
 
   const apply = useCallback(
-    (holes: DrillHole[]) => {
+    <H extends DrillHole>(holes: H[]) => {
       const kw = state.keyword.trim().toLowerCase();
       return holes.filter((hole) => {
         if (state.rigNo && hole.rigNo !== state.rigNo) return false;
@@ -66,7 +66,7 @@ export function useHoleFilter(): HoleFilterApi {
   );
 
   const matchRun = useCallback(
-    (run: DrillRun, holes: DrillHole[]) => apply(holes).some((hole) => hole.id === run.holeId),
+    <R extends DrillRun, H extends DrillHole>(run: R, holes: H[]) => apply(holes).some((hole) => hole.id === run.holeId),
     [apply],
   );
 

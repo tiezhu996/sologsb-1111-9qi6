@@ -1,7 +1,9 @@
 import { create } from 'zustand';
 import { db } from '../utils/db';
 import { uid } from '../utils/id';
+import { deleteStamped, putStamped } from '../sync/syncDb';
 import type { Alteration, LithoLog, Lithology, Mineralization, RangeConflict } from '../types/litho-log';
+import type { StampedEntity } from '../sync/types';
 import { findConflicts } from '../utils/recovery';
 
 export interface LithoInput {
@@ -18,14 +20,16 @@ export interface LithoInput {
   remark?: string;
 }
 
+type LithoRow = StampedEntity<LithoLog>;
+
 interface LithoState {
-  lithos: LithoLog[];
+  lithos: LithoRow[];
   hydrated: boolean;
   hydrate: () => Promise<void>;
   /** 编录区间冲突校验：返回与已编录区间重叠的冲突项（空数组表示无冲突） */
   checkConflicts: (input: Pick<LithoInput, 'holeId' | 'fromDepth' | 'toDepth'>, ignoreId?: string) => RangeConflict[];
-  addLitho: (input: LithoInput) => Promise<{ log?: LithoLog; conflicts: RangeConflict[] }>;
-  updateLitho: (id: string, patch: Partial<LithoInput>) => Promise<{ log?: LithoLog; conflicts: RangeConflict[] }>;
+  addLitho: (input: LithoInput) => Promise<{ log?: LithoRow; conflicts: RangeConflict[] }>;
+  updateLitho: (id: string, patch: Partial<LithoInput>) => Promise<{ log?: LithoRow; conflicts: RangeConflict[] }>;
   removeLitho: (id: string) => Promise<void>;
 }
 
@@ -40,7 +44,7 @@ export const useLithoStore = create<LithoState>()((set, get) => ({
   },
 
   checkConflicts: (input, ignoreId) => {
-    const candidate: LithoLog = {
+    const candidate = {
       id: ignoreId ?? 'candidate',
       holeId: input.holeId,
       fromDepth: Number(input.fromDepth) || 0,
@@ -52,7 +56,7 @@ export const useLithoStore = create<LithoState>()((set, get) => ({
       rqd: 0,
       sampleNo: '',
       logger: '',
-    };
+    } as LithoLog;
     return findConflicts(candidate, get().lithos);
   },
 
@@ -61,23 +65,28 @@ export const useLithoStore = create<LithoState>()((set, get) => ({
     if (conflicts.length) {
       return { conflicts };
     }
-    const log: LithoLog = {
-      id: uid('litho'),
-      holeId: input.holeId,
-      fromDepth: Number(input.fromDepth) || 0,
-      toDepth: Number(input.toDepth) || 0,
-      lithology: input.lithology,
-      color: input.color.trim(),
-      alteration: input.alteration,
-      mineralization: input.mineralization,
-      rqd: Number(input.rqd) || 0,
-      sampleNo: input.sampleNo.trim(),
-      logger: input.logger.trim(),
-      remark: input.remark?.trim() || undefined,
-    };
-    await db.lithos.put(log);
-    set({ lithos: [...get().lithos, log] });
-    return { log, conflicts: [] };
+    const id = uid('litho');
+    let log: LithoRow | undefined;
+    await putStamped<LithoLog>('lithos', id, (stamp) => {
+      log = {
+        id,
+        holeId: input.holeId,
+        fromDepth: Number(input.fromDepth) || 0,
+        toDepth: Number(input.toDepth) || 0,
+        lithology: input.lithology,
+        color: input.color.trim(),
+        alteration: input.alteration,
+        mineralization: input.mineralization,
+        rqd: Number(input.rqd) || 0,
+        sampleNo: input.sampleNo.trim(),
+        logger: input.logger.trim(),
+        remark: input.remark?.trim() || undefined,
+        ...stamp,
+      };
+      return log;
+    });
+    set({ lithos: [...get().lithos, log as LithoRow] });
+    return { log: log as LithoRow, conflicts: [] };
   },
 
   updateLitho: async (id, patch) => {
@@ -88,14 +97,18 @@ export const useLithoStore = create<LithoState>()((set, get) => ({
     if (conflicts.length) {
       return { conflicts };
     }
-    const next: LithoLog = { ...merged };
-    await db.lithos.put(next);
-    set({ lithos: get().lithos.map((l) => (l.id === id ? next : l)) });
-    return { log: next, conflicts: [] };
+    let next: LithoRow | undefined;
+    await putStamped<LithoLog>('lithos', id, (stamp) => {
+      next = { ...merged, id, ...stamp };
+      return next;
+    });
+    const row = next as LithoRow;
+    set({ lithos: get().lithos.map((l) => (l.id === id ? row : l)) });
+    return { log: row, conflicts: [] };
   },
 
   removeLitho: async (id) => {
-    await db.lithos.delete(id);
+    await deleteStamped('lithos', id);
     set({ lithos: get().lithos.filter((l) => l.id !== id) });
   },
 }));

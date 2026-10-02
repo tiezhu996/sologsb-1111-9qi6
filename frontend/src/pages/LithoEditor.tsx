@@ -4,6 +4,7 @@ import type { TableColumnsType } from 'antd';
 import DepthRangeInput from '../components/common/DepthRangeInput';
 import LithoColumn from '../components/common/LithoColumn';
 import EmptyPanel from '../components/common/EmptyPanel';
+import SourceTag from '../components/common/SourceTag';
 import { useHoleStore } from '../stores/holeStore';
 import { useRunStore } from '../stores/runStore';
 import { useLithoStore } from '../stores/lithoStore';
@@ -168,6 +169,11 @@ export default function LithoEditor() {
     { title: 'RQD(%)', dataIndex: 'rqd', width: 90, align: 'right', render: (v: number) => <Text type={v < 50 ? 'danger' : undefined}>{v}</Text> },
     { title: '样品号', dataIndex: 'sampleNo', width: 130, render: (v: string) => v || '-' },
     { title: '编录人', dataIndex: 'logger', width: 90 },
+    {
+      title: '来源',
+      width: 110,
+      render: (_, row) => <SourceTag nodeId={row.nodeId} updatedAt={row.updatedAt} legacy={row.legacy} />,
+    },
     { title: '备注', dataIndex: 'remark', ellipsis: true, render: (v?: string) => v ?? '-' },
     {
       title: '操作',

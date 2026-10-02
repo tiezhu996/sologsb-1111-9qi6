@@ -5,6 +5,7 @@ import dayjs, { type Dayjs } from 'dayjs';
 import BoxGrid from '../components/common/BoxGrid';
 import DepthRangeInput from '../components/common/DepthRangeInput';
 import EmptyPanel from '../components/common/EmptyPanel';
+import SourceTag from '../components/common/SourceTag';
 import { useHoleStore } from '../stores/holeStore';
 import { useRunStore } from '../stores/runStore';
 import { useBoxStore } from '../stores/boxStore';
@@ -158,6 +159,11 @@ export default function CoreBoxList() {
     { title: '库架位', dataIndex: 'shelfPos', width: 110 },
     { title: '装箱日期', dataIndex: 'boxedAt', width: 110, render: (v: string) => dayjs(v).format('YYYY-MM-DD') },
     { title: '装箱人', dataIndex: 'operator', width: 90 },
+    {
+      title: '来源',
+      width: 110,
+      render: (_, row) => <SourceTag nodeId={row.nodeId} updatedAt={row.updatedAt} legacy={row.legacy} />,
+    },
     {
       title: '破损格',
       width: 100,

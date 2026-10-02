@@ -1,7 +1,9 @@
 import { create } from 'zustand';
 import { db } from '../utils/db';
 import { uid } from '../utils/id';
+import { deleteStamped, putStamped } from '../sync/syncDb';
 import type { CoreBox } from '../types/core-box';
+import type { StampedEntity } from '../sync/types';
 
 export interface BoxInput {
   boxNo: string;
@@ -17,11 +19,13 @@ export interface BoxInput {
   remark?: string;
 }
 
+type BoxRow = StampedEntity<CoreBox>;
+
 interface BoxState {
-  boxes: CoreBox[];
+  boxes: BoxRow[];
   hydrated: boolean;
   hydrate: () => Promise<void>;
-  addBox: (input: BoxInput) => Promise<CoreBox>;
+  addBox: (input: BoxInput) => Promise<BoxRow>;
   updateBox: (id: string, patch: Partial<BoxInput>) => Promise<void>;
   removeBox: (id: string) => Promise<void>;
   /** 标记/取消破损格 */
@@ -39,35 +43,45 @@ export const useBoxStore = create<BoxState>()((set, get) => ({
   },
 
   addBox: async (input) => {
-    const box: CoreBox = {
-      id: uid('box'),
-      boxNo: input.boxNo.trim(),
-      holeId: input.holeId,
-      fromDepth: Number(input.fromDepth) || 0,
-      toDepth: Number(input.toDepth) || 0,
-      slots: Number(input.slots) || 0,
-      slotLength: Number(input.slotLength) || 0,
-      boxedAt: input.boxedAt,
-      shelfPos: input.shelfPos,
-      damagedSlots: input.damagedSlots ?? [],
-      operator: input.operator.trim(),
-      remark: input.remark?.trim() || undefined,
-    };
-    await db.boxes.put(box);
-    set({ boxes: [...get().boxes, box] });
-    return box;
+    const id = uid('box');
+    let box: BoxRow | undefined;
+    await putStamped<CoreBox>('boxes', id, (stamp) => {
+      box = {
+        id,
+        boxNo: input.boxNo.trim(),
+        holeId: input.holeId,
+        fromDepth: Number(input.fromDepth) || 0,
+        toDepth: Number(input.toDepth) || 0,
+        slots: Number(input.slots) || 0,
+        slotLength: Number(input.slotLength) || 0,
+        boxedAt: input.boxedAt,
+        shelfPos: input.shelfPos,
+        damagedSlots: input.damagedSlots ?? [],
+        operator: input.operator.trim(),
+        remark: input.remark?.trim() || undefined,
+        ...stamp,
+      };
+      return box;
+    });
+    const row = box as BoxRow;
+    set({ boxes: [...get().boxes, row] });
+    return row;
   },
 
   updateBox: async (id, patch) => {
     const current = get().boxes.find((b) => b.id === id);
     if (!current) return;
-    const next: CoreBox = { ...current, ...patch };
-    await db.boxes.put(next);
-    set({ boxes: get().boxes.map((b) => (b.id === id ? next : b)) });
+    let next: BoxRow | undefined;
+    await putStamped<CoreBox>('boxes', id, (stamp) => {
+      next = { ...current, ...patch, id, ...stamp };
+      return next;
+    });
+    const row = next as BoxRow;
+    set({ boxes: get().boxes.map((b) => (b.id === id ? row : b)) });
   },
 
   removeBox: async (id) => {
-    await db.boxes.delete(id);
+    await deleteStamped('boxes', id);
     set({ boxes: get().boxes.filter((b) => b.id !== id) });
   },
 
@@ -77,8 +91,12 @@ export const useBoxStore = create<BoxState>()((set, get) => ({
     const damagedSlots = current.damagedSlots.includes(slot)
       ? current.damagedSlots.filter((s) => s !== slot)
       : [...current.damagedSlots, slot].sort((a, b) => a - b);
-    const next: CoreBox = { ...current, damagedSlots };
-    await db.boxes.put(next);
-    set({ boxes: get().boxes.map((b) => (b.id === id ? next : b)) });
+    let next: BoxRow | undefined;
+    await putStamped<CoreBox>('boxes', id, (stamp) => {
+      next = { ...current, damagedSlots, id, ...stamp };
+      return next;
+    });
+    const row = next as BoxRow;
+    set({ boxes: get().boxes.map((b) => (b.id === id ? row : b)) });
   },
 }));

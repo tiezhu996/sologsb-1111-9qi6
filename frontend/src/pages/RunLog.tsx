@@ -6,6 +6,7 @@ import StatBadge from '../components/common/StatBadge';
 import RecoveryBadge from '../components/common/RecoveryBadge';
 import DepthRangeInput from '../components/common/DepthRangeInput';
 import EmptyPanel from '../components/common/EmptyPanel';
+import SourceTag from '../components/common/SourceTag';
 import { useDepthCalc } from '../hooks/useDepthCalc';
 import { useHoleStore } from '../stores/holeStore';
 import { useRunStore } from '../stores/runStore';
@@ -135,6 +136,11 @@ export default function RunLog() {
     { title: '班次', dataIndex: 'shift', width: 80 },
     { title: '钻进日期', dataIndex: 'drilledAt', width: 120, render: (v: string) => dayjs(v).format('YYYY-MM-DD') },
     { title: '记录人', dataIndex: 'recorder', width: 90 },
+    {
+      title: '来源',
+      width: 110,
+      render: (_, row) => <SourceTag nodeId={row.nodeId} updatedAt={row.updatedAt} legacy={row.legacy} />,
+    },
     { title: '备注', dataIndex: 'remark', ellipsis: true, render: (v?: string) => v ?? '-' },
     {
       title: '操作',

@@ -1,8 +1,10 @@
+import type { SyncEnvelope } from '../sync/types';
+
 /** 回次水位 */
 export type RunShift = '甲班' | '乙班' | '丙班';
 
 /** 钻进回次 */
-export interface DrillRun {
+export interface DrillRun extends Partial<SyncEnvelope> {
   id: string;
   /** 回次号 */
   runNo: string;

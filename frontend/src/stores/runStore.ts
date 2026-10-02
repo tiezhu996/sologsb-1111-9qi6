@@ -1,7 +1,9 @@
 import { create } from 'zustand';
 import { db } from '../utils/db';
 import { uid } from '../utils/id';
+import { deleteStamped, putStamped } from '../sync/syncDb';
 import type { DrillRun, RunAnomaly, RunShift } from '../types/drill-run';
+import type { StampedEntity } from '../sync/types';
 import { footageOf, gradeOf, isAnomaly, recoveryOf, RECOVERY_GRADE_TEXT } from '../utils/recovery';
 
 export interface RunInput {
@@ -18,10 +20,10 @@ export interface RunInput {
 }
 
 interface RunState {
-  runs: DrillRun[];
+  runs: StampedEntity<DrillRun>[];
   hydrated: boolean;
   hydrate: () => Promise<void>;
-  addRun: (input: RunInput) => Promise<DrillRun>;
+  addRun: (input: RunInput) => Promise<StampedEntity<DrillRun>>;
   updateRun: (id: string, patch: Partial<RunInput>) => Promise<void>;
   removeRun: (id: string) => Promise<void>;
   removeByHole: (holeId: string) => Promise<void>;
@@ -38,55 +40,67 @@ export const useRunStore = create<RunState>()((set, get) => ({
   },
 
   addRun: async (input) => {
+    const id = uid('run');
     const footage = footageOf(input.fromDepth, input.toDepth);
-    const run: DrillRun = {
-      id: uid('run'),
-      runNo: input.runNo.trim(),
-      holeId: input.holeId,
-      fromDepth: Number(input.fromDepth) || 0,
-      toDepth: Number(input.toDepth) || 0,
-      footage,
-      coreLength: Number(input.coreLength) || 0,
-      recovery: recoveryOf(input.coreLength, footage),
-      waterLevel: Number(input.waterLevel) || 0,
-      shift: input.shift,
-      drilledAt: input.drilledAt,
-      recorder: input.recorder.trim(),
-      remark: input.remark?.trim() || undefined,
-    };
-    await db.runs.put(run);
-    set({ runs: [run, ...get().runs] });
-    return run;
+    let run: StampedEntity<DrillRun> | undefined;
+    await putStamped<DrillRun>('runs', id, (stamp) => {
+      run = {
+        id,
+        runNo: input.runNo.trim(),
+        holeId: input.holeId,
+        fromDepth: Number(input.fromDepth) || 0,
+        toDepth: Number(input.toDepth) || 0,
+        footage,
+        coreLength: Number(input.coreLength) || 0,
+        recovery: recoveryOf(input.coreLength, footage),
+        waterLevel: Number(input.waterLevel) || 0,
+        shift: input.shift,
+        drilledAt: input.drilledAt,
+        recorder: input.recorder.trim(),
+        remark: input.remark?.trim() || undefined,
+        ...stamp,
+      };
+      return run;
+    });
+    set({ runs: [run as StampedEntity<DrillRun>, ...get().runs] });
+    return run as StampedEntity<DrillRun>;
   },
 
   updateRun: async (id, patch) => {
     const current = get().runs.find((r) => r.id === id);
     if (!current) return;
-    const merged = { ...current, ...patch };
-    const footage = footageOf(merged.fromDepth, merged.toDepth);
-    const next: DrillRun = {
-      ...merged,
-      footage,
-      recovery: recoveryOf(merged.coreLength, footage),
-    };
-    await db.runs.put(next);
+    let next!: StampedEntity<DrillRun>;
+    await putStamped<DrillRun>('runs', id, (stamp) => {
+      const merged = { ...current, ...patch, id };
+      const footage = footageOf(merged.fromDepth, merged.toDepth);
+      next = {
+        ...merged,
+        footage,
+        recovery: recoveryOf(merged.coreLength, footage),
+        ...stamp,
+      };
+      return next;
+    });
     set({ runs: get().runs.map((r) => (r.id === id ? next : r)) });
   },
 
   removeRun: async (id) => {
-    await db.runs.delete(id);
+    await deleteStamped('runs', id);
     set({ runs: get().runs.filter((r) => r.id !== id) });
   },
 
   removeByHole: async (holeId) => {
     const ids = get().runs.filter((r) => r.holeId === holeId).map((r) => r.id);
-    await db.runs.bulkDelete(ids);
+    // 逐条逻辑删除：每个回次各写墓碑，删除事实可随差量包同步
+    for (const runId of ids) {
+      await deleteStamped('runs', runId);
+    }
     set({ runs: get().runs.filter((r) => r.holeId !== holeId) });
   },
 }));
 
 /** 采取率异常清单（低于 75% 判异常） */
-export function anomalyList(runs: DrillRun[], holeNoOf: (holeId: string) => string): RunAnomaly[] {
+export function anomalyList(runs: StampedEntity<DrillRun>[], holeNoOf: (holeId: string) => string): RunAnomaly[] {
   return runs
     .filter((run) => isAnomaly(run.recovery))
     .map((run) => ({

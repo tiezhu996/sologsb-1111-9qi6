@@ -1,3 +1,5 @@
+import type { SyncEnvelope } from '../sync/types';
+
 /** 钻孔测斜点 */
 export interface SurveyPoint {
   id: string;
@@ -9,8 +11,14 @@ export interface SurveyPoint {
   azimuth: number;
 }
 
+/**
+ * 同步信封为可选字段：业务代码新建的草稿对象不带信封，落库行必有。
+ * 列表页因此可直接展示 nodeId 等来源信息。
+ */
+export type SyncEnvelopeOptional = Partial<SyncEnvelope>;
+
 /** 钻孔台帐 */
-export interface DrillHole {
+export interface DrillHole extends SyncEnvelopeOptional {
   id: string;
   /** 孔号 */
   holeNo: string;

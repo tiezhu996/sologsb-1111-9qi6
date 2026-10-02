@@ -1,5 +1,7 @@
+import type { SyncEnvelope } from '../sync/types';
+
 /** 岩芯箱 */
-export interface CoreBox {
+export interface CoreBox extends Partial<SyncEnvelope> {
   id: string;
   /** 箱号 */
   boxNo: string;

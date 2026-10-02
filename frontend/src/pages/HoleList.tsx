@@ -4,6 +4,7 @@ import type { TableColumnsType } from 'antd';
 import dayjs, { type Dayjs } from 'dayjs';
 import FilterBar from '../components/common/FilterBar';
 import EmptyPanel from '../components/common/EmptyPanel';
+import SourceTag from '../components/common/SourceTag';
 import { useHoleFilter } from '../hooks/useHoleFilter';
 import { useHoleStore } from '../stores/holeStore';
 import { useRunStore } from '../stores/runStore';
@@ -147,6 +148,11 @@ export default function HoleList() {
     },
     { title: '岩芯箱', width: 90, align: 'right', render: (_, row) => `${boxes.filter((b) => b.holeId === row.id).length} 箱` },
     { title: '测斜点', width: 90, align: 'right', render: (_, row) => `${row.surveyData.length} 点` },
+    {
+      title: '来源',
+      width: 110,
+      render: (_, row) => <SourceTag nodeId={row.nodeId} updatedAt={row.updatedAt} legacy={row.legacy} />,
+    },
     {
       title: '状态',
       width: 140,

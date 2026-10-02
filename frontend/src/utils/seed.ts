@@ -4,9 +4,19 @@ import type { DrillRun } from '../types/drill-run';
 import type { CoreBox } from '../types/core-box';
 import type { LithoLog } from '../types/litho-log';
 import { footageOf, recoveryOf } from './recovery';
+import { legacyEnvelope } from '../sync/clock';
+import type { StampedEntity } from '../sync/types';
 
 const DAY = 86_400_000;
 const daysAgo = (n: number) => new Date(Date.now() - n * DAY).toISOString();
+
+/**
+ * 示例数据视为「升级前的公共旧库」：统一盖公共祖先信封 __legacy__@1，
+ * 与 v3 升级时对历史数据的兼容回填规则一致，避免两台机器各录后误判冲突。
+ */
+function withLegacyStamp<T extends object>(row: T): StampedEntity<T> {
+  return { ...row, ...legacyEnvelope() };
+}
 
 export const SEED_HOLES: DrillHole[] = [
   {
@@ -181,10 +191,10 @@ export async function seedIfEmpty(): Promise<void> {
   ]);
 
   await db.transaction('rw', db.holes, db.runs, db.boxes, db.lithos, db.meta, async () => {
-    if (holeCount === 0) await db.holes.bulkPut(SEED_HOLES);
-    if (runCount === 0) await db.runs.bulkPut(SEED_RUNS);
-    if (boxCount === 0) await db.boxes.bulkPut(SEED_BOXES);
-    if (lithoCount === 0) await db.lithos.bulkPut(SEED_LITHOS);
+    if (holeCount === 0) await db.holes.bulkPut(SEED_HOLES.map(withLegacyStamp));
+    if (runCount === 0) await db.runs.bulkPut(SEED_RUNS.map(withLegacyStamp));
+    if (boxCount === 0) await db.boxes.bulkPut(SEED_BOXES.map(withLegacyStamp));
+    if (lithoCount === 0) await db.lithos.bulkPut(SEED_LITHOS.map(withLegacyStamp));
     await db.meta.put({ key: 'seeded', value: new Date().toISOString() });
   });
 }

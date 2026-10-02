@@ -1,3 +1,5 @@
+import type { SyncEnvelope } from '../sync/types';
+
 /** 岩性 */
 export type Lithology = '花岗闪长岩' | '大理岩' | '矽卡岩' | '断层角砾岩' | '第四系覆盖层';
 
@@ -8,7 +10,7 @@ export type Alteration = '无' | '硅化' | '绿泥石化' | '碳酸盐化' | '�
 export type Mineralization = '无' | '黄铜矿' | '磁铁矿' | '黄铁矿' | '方铅矿';
 
 /** 岩性描述编录（按深度区间） */
-export interface LithoLog {
+export interface LithoLog extends Partial<SyncEnvelope> {
   id: string;
   /** 所属钻孔 */
   holeId: string;
