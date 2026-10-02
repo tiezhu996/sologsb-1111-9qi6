@@ -1,0 +1,31 @@
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  padding: 0;
+  min-height: 100%;
+}
+
+body {
+  background: #f4f7f9;
+  color: #22323c;
+  font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Helvetica Neue',
+    Arial, sans-serif;
+}
+
+a {
+  color: #3b6c8f;
+}
+
+.ant-table-cell {
+  vertical-align: middle;
+}
+
+/* 岩性编录：冲突区间高亮 */
+.conflict-row > td {
+  background: #fff1f0 !important;
+}
